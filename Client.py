@@ -1,21 +1,40 @@
 import sys
 import socket
+import tkinter as tk
 import threading
 import json
+from tkinter import messagebox
+from tkinter import ttk
 
-# Có tham khảo trên https://docs.python.org/2/library/socket.html
-
-# Trả về IPV4 của máy hiện tại cho HOST
-HOST = socket.gethostbyname(socket.gethostname())
+HOST = "127.0.0.1"
 # Đồng nhất port với bên server
 PORT = 7654
-# Tạo socket CLIENT
+SERVER_addr = (HOST, PORT)
+FORMAT = "utf8"
+HEADER = 64
+
+################################
+
+
+################################
+
+
+# initialize socket CLIENT
 try:
     CLIENT = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 except socket.error:
     print("Failed to create Client!")
     sys.exit();
-CLIENT.connect((HOST, PORT))       # Kết nối tới SERVER
-data = CLIENT.recv(1024)
-CLIENT.close()
-print('Server Respond: ', repr(data))
+
+CLIENT.connect(SERVER_addr)       # Kết nối tới SERVER
+
+try:
+    data = None
+    while (data != "End"):
+        data = input("Write sth: ")
+        CLIENT.sendall(data.encode(FORMAT))
+except:
+    print("Server isn't responding!")
+    CLIENT.close()
+finally:
+    CLIENT.close()

@@ -13,7 +13,20 @@ PORT = 7654
 FORMAT = "utf8"
 HEADER = 64
 
-# tạo socket SERVER, với địa chỉ IPV4, giao thức TCP
+# Hàm để connect giữa Client và Server
+def connClient(conn: socket, nThread):
+    data = None
+    #msg = None
+    while (data != "END"):
+        data = conn.recv(1024).decode(FORMAT)
+        print("Client ", nThread, ": ", data)  
+        ## Server sẽ phản hồi lại client (khi cần)  
+        #data = input("Server response: ")
+        #conn.sendall(data.encode(FORMAT))          
+        #if not data: break
+    conn.close()
+
+# tạo socket SERVER, với địa chỉ IPv4, giao thức TCP
 try:
     SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 except socket.error:
@@ -21,21 +34,37 @@ except socket.error:
     sys.exit();
 
 SERVER.bind((HOST, PORT))    # Gán địa chỉ (HOST, PORT) cho SERVER
-SERVER.listen(1)     # Thiết lập tối đa một kết nối, bắt đầu TCP listen
+SERVER.listen(1)             # Thiết lập tối đa một kết nối, bắt đầu TCP listen
 print("Waiting for client to connect...")
 
+################################
 
-conn, addr = SERVER.accept()     # thiết lập kết nối với Client
+##server nhận username + password
+#username = conn.recv(1024).encode(FORMAT)
+##servet phản hồi lại client khi nhận được username
+#conn.sendall(username.encode(FORMAT))
+#pass = con.recv(1024).encode(FORMAT)
 
-try:
-    data = None
-    while (data != "End"):
-        data = conn.recv(1024).decode(FORMAT)
-        print("client ", addr, "says", data)
-        #if not data: break
-except KeyboardInterrupt:
-    print("Error!")
-    SERVER.close()
-finally:
-    SERVER.close()
-    print("The end!")
+################################
+
+#số luồng của server (số client mà server có thể trao đổi trong cùng 1 lúc)
+nThread = 0
+while (nThread < 3):
+    try:
+        conn, addr = SERVER.accept()     # thiết lập kết nối với Client
+        print("Client ", nThread, addr, "connected !!")
+        # gọi đa luồng cho Server
+        thread = threading.Thread(target = connClient, args = (conn, nThread))
+        thread.daemon = False
+        thread.start()
+       
+    except KeyboardInterrupt:
+        print("ERROR !!")
+        SERVER.close()
+       
+    nThread += 1   
+
+# Để finally không được :) 
+print("SERVER DEAD !!")		# :))
+SERVER.close()
+    

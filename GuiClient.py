@@ -1,56 +1,41 @@
+﻿from ctypes import c_int
 import sys
 import socket
 import tkinter as tk                # python 3
 from tkinter import font as tkfont
 from GetAPI import *
+from tkinter import messagebox
 import SearchingPage
+
+# Remember to handle message send to server between two comment like the one below:
+##################
+#....................                   /message
+##################
 
 PORT = 7654
 FORMAT = "utf8"
 HEADER = 64
+
+# Các message gửi sang server sẽ được liệt kê dưới đây
+Client_exit = "clientexit"
+Client_enter= "cliententer"
+
+# Các message được server gửi tới sẽ được liệt kê dưới đây
+Okay = "oke"            # Đã nhận được message
+FNF = "FileNotFound"
+UNF = "UsernameNotFound"
+wrongPass = "wrongPassword"
+sendAgain = "sendAgain"
+valUser = "ValidUsername"
+
+SIGNIN = 'SIGNIN'
+SIGNUP = 'SIGNUP'
+
 try:
     CLIENT = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 except socket.error:
     print("FAILED TO CREATE CLIENT !!")
     sys.exit();
-
-def LogIn(CLIENT):
-    # Nhập username và password
-    username = input("USER: ")  
-    pwd = input("PASS: ")
-
-    # Client gửi thông tin về server để kiểm tra thông tin
-    CLIENT.sendall(username.encode(FORMAT))
-    # lệnh client.recv() để client gửi tuần tự username - pass về cho server
-    checkingUser = CLIENT.recv(1024)
-    if (checkingUser != 'INVALID ACCOUNT'):
-        CLIENT.sendall(pwd.encode(FORMAT))
-        # CLient nhận phản hồi từ server tài khoản có đúng hay không
-        check = CLIENT.recv(1024)
-        if (check == 'FALSE'):
-            print('PASSWORD OR ACCOUNT IS INCORRECT')
-
-def SignUp(CLIENT):
-    # Client nhập username + password
-
-    username = input("USER: ")
-
-    # Client gửi thông tin Username qua cho Server kiểm tra
-    CLIENT.sendall(username.encode(FORMAT))
-
-    # Server kiểm tra và phản hồi lại Client 
-    checkingUser = CLIENT.recv(1024)
-
-    # Kiểm tra thông tin của username
-    if (checkingUser == 'INVALID'):
-        print('INVALID ACCOUNT !!')
-        return   
-    else:   
-        pwd = input("PASS: ") 
-        CLIENT.sendall(pwd.encode(FORMAT))
-        # Client thông báo cho người dùng
-        notify = CLIENT.recv(1024).decode(FORMAT)
-        print(notify)
 
 class AppClient(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -71,7 +56,7 @@ class AppClient(tk.Tk):
         container.grid_rowconfigure(0, weight = 1)
         container.grid_columnconfigure(0, weight = 1)
 
-        # Tạo frames cho container
+        # Tạo frames cho container, gán nhãn tương đương với tên container
         self.frames = {}
         for F in (StartPage, SignIn, SignUp):
             page_name = F.__name__
@@ -80,10 +65,13 @@ class AppClient(tk.Tk):
 
             # Đặt tất cả các frame page ở cùng một vị trí trên Window của AppClient
             frame.grid(row = 0, column = 0, sticky = "nsew")
+        self.HomePage()
 
-        # Hiện SearchingPage trước tiên
+    def HomePage(self):
+        # Hiện HomePage trước tiên
         self.title_font = tkfont.Font(family = 'Helvetica', size = 32, weight = "bold", slant = "italic")
         self.miniFont = tkfont.Font(family = 'Helvetica', size = 14, slant = "italic")
+
         label = tk.Label(self, text = "CLIENT", font =  self.title_font)     
         ipLabel = tk.Label(self, text = "IP Server: ", font = self.miniFont)
         IP = tk.StringVar()
@@ -91,55 +79,45 @@ class AppClient(tk.Tk):
         notifyLabel = tk.Label(self, text = "")
         connect = tk.Button(self, text = "CONNECT", padx = 50, pady= 10, font= self.miniFont, command = lambda: self.checkIP(IP))
 
-        label.grid()
-        ipLabel.grid()
-        ipEntry.grid()
-        notifyLabel.grid()
-        connect.grid()
+        for F in (label, ipLabel, ipEntry, notifyLabel, connect):
+            F.grid()
+
     
     def checkIP(self, ip):
-        IPServer = str(ip.get())
-        HOST = IPServer
+        HOST = str(ip.get())
         # Đồng nhất port với bên server
         
-        SERVER_addr = (HOST, PORT)
-        
-        notice = ""
-        
+        SERVER_addr = (HOST, PORT) 
         try: 
-            self.CLIENT.connect(SERVER_addr)       # Kết nối tới SERVER
-            self.showFrame("StartPage")
-            msg = None
-            while (msg != "END"):
-                msg = input("Talk to server: ")
-                CLIENT.sendall(msg.encode(FORMAT))
-                #receive = CLIENT.recv(1024).decode(FORMAT)
-                #print("Server respone: ", receive)
-                #if (receive == "END"):
-                #    msg = receive
+            CLIENT.connect(SERVER_addr)                     # Kết nối tới SERVER
+            CLIENT.sendall(Client_enter.encode(FORMAT))     # Gửi thông tin cho SERVER là đã kết nối
+            self.showFrame("StartPage")                     # Vào trang Start
+            CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
         except:
-            notice = "SERVER ISN'T RESPONDING!"
-            tk.Label(self, text = notice, font = self.miniFont).grid(row = 5)
-            CLIENT.close()
-        finally:
-            notice = "                         "
-            tk.Label(self, text = notice, font = self.miniFont).grid(row = 5)
-            CLIENT.close()
+            messagebox.showinfo("Notification!", "Can't connect to SERVER with given IP!")
 
-    # Hàm showFrame để hiện các frame page đã lưu trong self.frames
+    # Hàm hiện frame page_name đã lưu trong self.frames
     def showFrame(self, page_name):
         '''Show a frame for the given page name'''
         frame = self.frames[page_name]
+        ###################################################
+        # Thống nhất phần kích cỡ của frame ở trong này
+        ##########################################
         frame.tkraise()
 
     def End(self):
+        if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+            ##################
+            CLIENT.sendall(Client_exit.encode(FORMAT))      #Gửi thông tin cho SERVER thông báo client đã đóng
+            ##################
         self.destroy()
+        CLIENT.close()
+
 
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-        # Là một frame WINDOW của APP nên gọi lại controller (self = tk.Tk)
-        self.controller = controller
+
         label = tk.Label(self, text = "CLIENT", font = controller.title_font)
         label.pack(side = "top", pady = 20)
 
@@ -174,54 +152,52 @@ class SignIn(tk.Frame):
         passwordEntry = tk.Entry(self, textvariable = password, show = '*', font = self.title_font)
 
         # Chạy hàm checkLogin và nếu success thì import và vào Searching không thì sẽ báo lỗi
-        notifyLabel = tk.Label(self, text = "")
         SignInButton = tk.Button(self, text = "Sign In", padx = 30, pady= 5, command = lambda: self.checkAccount(username, password))
         backButton = tk.Button(self, text = "BACK", padx = 35, pady= 5, command = lambda: controller.showFrame("StartPage"))
         
-        loginText_label.grid()
-        usernameLabel.grid()
-        usernameEntry.grid()
-        passwordLabel.grid()
-        passwordEntry.grid()
-        notifyLabel.grid()
-        SignInButton.grid()
-        backButton.grid()
+        for F in (loginText_label, usernameLabel, usernameEntry, passwordLabel, passwordEntry, SignInButton, backButton):
+            F.grid()
 
-    def checkAccount(self, Username, Password):
-        username = str(Username.get())
-        password = str(Password.get())
-        notifyFont = tkfont.Font(family = 'Helvetica', size = 10, slant = "italic")
-        notify = ""
-        CLIENT.sendall(username.encode(FORMAT))
-        # lệnh client.recv() để client gửi tuần tự username - pass về cho server
-        checkingUser = CLIENT.recv(1024)
-        if (checkingUser != 'INVALID ACCOUNT'):
-            CLIENT.sendall(password.encode(FORMAT))
-            # CLient nhận phản hồi từ server tài khoản có đúng hay không
-            check = CLIENT.recv(1024)
-            if (check == 'FALSE'):
-                print('PASSWORD OR USERNAME IS INCORRECT')
-        
-        #check = 0
-        if (username == '' or password == ''):
-            notify = "Please entering username or password"
-            pad = 0            
-        elif (username != "asd" or password != "asd"):
-            notify = "Username or password is wrong"
-            pad = 30
-        else:
-            notify = "Sign in successfull"
-            pad = 50
-            check = 1        
+    # Hàm check user bằng cách gửi thông tin cho server kiểm duyệt
+    def checkAccount(self, username, password):
+        Username = str(username.get())
+        Password = str(password.get())
 
-        Username.set("")
-        Password.set("")
-        notifyLabel = tk.Label(self, text = notify, font = notifyFont, padx = pad)
-        notifyLabel.grid(row = 5)
-        if (check == 1):
-            app = SearchingPage.SearchingApp()
-            app.mainloop()
+        username.set("")
+        password.set("")
 
+        if len(Username) == 0 or len(Password) == 0:
+            messagebox.showwarning("Warning!!!", "Don't leave any field empty!")
+            return
+
+        CLIENT.sendall(SIGNIN.encode(FORMAT))
+        # Gửi username và password đã nhập tới SERVER để check
+    
+        CLIENT.sendall(Username.encode(FORMAT))
+        CLIENT.recv(1024).decode(FORMAT)
+        CLIENT.sendall(Password.encode(FORMAT))
+        check = CLIENT.recv(1024).decode(FORMAT)
+
+        try:
+            if check == FNF:
+                messagebox.showwarning("Warning!!!", "No data for login!")
+            elif check == UNF:
+                messagebox.showinfo("Notification!!!", "Invalid username!")
+            elif check == wrongPass:
+                messagebox.showinfo("Notification!", "Incorrect password!\nTry again!")
+            elif check == Okay:
+                messagebox.showinfo("Notification!", "Welcome back, bro!")
+                app = SearchingPage.SearchingApp()
+                app.mainloop()
+                return   
+
+        except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
+            messagebox.showwarning("Warning!!!", "Server corrupted!")
+            ############################
+            # Quay lại GUI nhập IP chỗ này nha ---------------
+            ############################
+            self.controller.HomePage()            
+            
 class SignUp(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -247,37 +223,52 @@ class SignUp(tk.Frame):
         confirm_password = tk.StringVar()
         confirm_passwordEntry = tk.Entry(self, textvariable = confirm_password, show = '*', font = self.title_font)
 
-        # Chạy hàm checkLogin và nếu success thì import và vào Searching không thì sẽ báo lỗi
-        notifyLabel = tk.Label(self, text = "")  
-        loginButton = tk.Button(self, text = "Sign Up", padx = 30, pady= 5, command = lambda: self.checkPassWord(confirm_password, password) )            
+        # Chạy hàm checkSignup và nếu success thì import và vào Searching không thì sẽ báo lỗi
+        loginButton = tk.Button(self, text = "Sign Up", padx = 30, pady= 5, command = lambda: self.checkSignup(username, password, confirm_password) )            
         backButton = tk.Button(self, text = "BACK", padx = 35, pady= 5, command = lambda: controller.showFrame("StartPage"))
         
-        loginText_label.grid()
-        usernameLabel.grid()
-        usernameEntry.grid()
-        passwordLabel.grid()
-        passwordEntry.grid()
-        confirm_passwordLabel.grid()
-        confirm_passwordEntry.grid()
-        notifyLabel.grid()
-        loginButton.grid()
-        backButton.grid()
-        
-    def checkPassWord(self, confirm_password, password):
-        confirmPassword = str(confirm_password.get())
+        for F in (loginText_label, usernameLabel, usernameEntry, passwordLabel, passwordEntry, confirm_passwordLabel, confirm_passwordEntry, loginButton, backButton):
+            F.grid()
+             
+    def checkSignup(self, username, password, confirm_password):
+        Username = str(username.get())
         Password = str(password.get())
-        notify = ""   
-        if (confirmPassword == '' or Password == ''):
-            notify = "Please entering password or confirm password"        
-        elif (confirmPassword == Password):
-            notify = "Creating account successfully !!"
-        else:
-            notify = "Confirm password is wrong !!"
+        Cpassword = str(confirm_password.get())
         
-        notifyFont = tkfont.Font(family = 'Helvetica', size = 10, slant = "italic")
-        notifyLabel = tk.Label(self, text = notify, font = notifyFont)
-        notifyLabel.grid(row = 7)
+        if len(username) == 0 or len(password) == 0 or len(Cpassword) == 0:
+            messagebox.showwarning("Warning!!!", "Don't leave any field empty!")
+        elif Cpassword != password:
+            messagebox.showinfo("Warning!!!", "Confirmed password don't match!")
+        else:
+            # Gửi lệnh đăng ký đến server
+            CLIENT.sendall(SIGNUP.encode(FORMAT))
 
-if __name__ == "__main__":
-    app = AppClient()
-    app.mainloop()
+            CLIENT.sendall(Username.encode(FORMAT))
+            CLIENT.recv(1024).decode(FORMAT)
+            CLIENT.sendall(Password.encode(FORMAT))
+            CLIENT.recv(1024).decode(FORMAT)
+
+            check = CLIENT.recv(1024).decode(FORMAT)
+            try:
+                if check == valUser:
+                    messagebox.showwarning("Warning!!!", "Username is already exist!")
+                    return
+                elif check == Okay:
+                    messagebox.showinfo("Notification!", "Welcome, bro!")
+                    username.set("")
+                    password.set("")
+                    confirm_password.set("")
+                    return   
+            except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
+                messagebox.showwarning("Warning!!!", "Server corrupted!")
+                ############################
+                # Quay lại GUI nhập IP chỗ này nha ---------------
+                ############################
+                self.controller.HomePage()
+
+try:
+    if __name__ == "__main__":
+        app = AppClient()
+        app.mainloop()
+finally:
+    CLIENT.close()

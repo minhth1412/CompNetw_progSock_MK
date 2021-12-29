@@ -176,7 +176,7 @@ class Server(tk.Frame):
         
     #----------------------------------------------
 
-    def connClient(self, conn: socket, nThread, sent):
+    def connClient(self, conn: socket, addr):
         msg = None
         while (msg != "END"):
             msg = conn.recv(1024).decode(FORMAT)        
@@ -188,38 +188,33 @@ class Server(tk.Frame):
                 print("ok")
                 conn.sendall(Okay.encode(FORMAT))
 
-        tk.Label(self.mycanvas, text = "CLIENT" + str(nThread) + "CLOSE !!", font = self.tile_font).grid()
+        tk.Label(self.mycanvas, text = "CLIENT" + str(addr) + "CLOSE !!", font = self.tile_font).grid()
         conn.close()
 
     def init_RunThread(self):
         #---------------------------------------------
         #số luồng của server (số client mà server có thể trao đổi trong cùng 1 lúc)
-        nThread = 0
-        sent = None
         SERVER.listen(1)
-        while (nThread < 1):
+        while (True):
             try:
                 conn, addr = SERVER.accept()
-                tk.Label(self.mycanvas, text = "CLIENT " + str(nThread) + addr + "CONNECTED !!", font = self.tile_font).grid()
+                tk.Label(self.mycanvas, text = "CLIENT " + str(addr) + "CONNECTED !!", font = self.tile_font).grid()
                     
                 # gọi đa luồng cho Server
-                thread = threading.Thread(target = self.connClient, args = (conn, nThread, sent))
-                thread.daemon = False
+                thread = threading.Thread(target = self.connClient, args = (conn, addr))
+                thread.daemon = True
                 thread.start()
 
-            except:
-                return
-            
-            nThread += 1 
-                
-        # # Để finaly không được :)
-        if (input() == "END"):
-            messagebox.showwarning("SERVER DEAD !!")
-            SERVER.close()
-            conn.close()
+            except KeyboardInterrupt:
+                messagebox.showwarning("SERVER CLOSED !!")
+                conn.close()
+                SERVER.close()
 
-    def Connect(self):
-        
+    def init(self):
+        startServer = threading.Thread(target= self.init_RunThread)
+        startServer.daemon = True
+        startServer.start()
+    def Connect(self):  
         # Vẽ frame chứa các button 
         self.mycanvas = tk.Canvas(self, height = 360, width = 300)
         self.mycanvas.grid(row = 0,column = 0)
@@ -235,20 +230,12 @@ class Server(tk.Frame):
         self.mycanvas.create_window((0,0), window = myframe, anchor = "nw")
 
         self.showAccount()
-        # # pack nội dung đăng nhập client 
-        # result = []
-        # i = 0
-        # for p in cursor['results']:  
-        #     # Đọc dữ liệu currency từ cursor
-        #     result.append(p['currency']) 
-        #     currency = tk.Button(myframe, text = p['currency'], width = 40, height = 2, command = Callback(self.showAccount, p['currency']))
-        #     currency.grid(row = i, column = 0)
-        #     i = i + 1
 
         # Button back về Searching Page 
         button = tk.Button(self, text = "END SERVER", command = lambda: self.controller.showFrame("StartPage"),
                                      height = 2, width = 40)
-        button.grid(row = 1, column = 0)  
+        button.grid(row = 1, column = 0)
+        self.init()
         
     # Hàm show Currency khi click vào button có mang tiền tệ
     def showAccount(self):
@@ -290,6 +277,7 @@ class Server(tk.Frame):
 
         # Cập nhật cho frame
         self.table = table
+
 
     def item_selected(self, event):
         for selected_item in self.table.selection():

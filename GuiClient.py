@@ -71,7 +71,7 @@ class AppClient(tk.Tk):
     
     def checkIP(self, ip):
         HOST = "127.0.0.1"
-        #HOST = str(ip.get())
+        # HOST = str(ip.get())
         # Đồng nhất port với bên server
         print(HOST)
         SERVER_addr = (HOST, PORT) 
@@ -84,7 +84,7 @@ class AppClient(tk.Tk):
             msg = CLIENT.recv(1024).decode(FORMAT)
             self.showFrame("StartPage")                     # Vào trang Start
             CLIENT.settimeout(10)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
-        except (msg != Okay):
+        except:
             print(msg)
             messagebox.showinfo("Notification!", "Can't connect to SERVER with given IP!")
 
@@ -107,7 +107,7 @@ class AppClient(tk.Tk):
 
 class HomePage(tk.Frame):
     def __init__(self, parent, controller):
-        super(HomePage, self).__init__()
+        tk.Frame.__init__(self, parent)
 
         self.title_font = tkFont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
         # Hiện HomePage trước tiên
@@ -242,7 +242,7 @@ class SignUp(tk.Frame):
         Password = str(password.get())
         Cpassword = str(confirm_password.get())
         
-        if len(username) == 0 or len(password) == 0 or len(Cpassword) == 0:
+        if len(Username) == 0 or len(Password) == 0 or len(Cpassword) == 0:
             messagebox.showwarning("Warning!!!", "Don't leave any field empty!")
         elif Cpassword != password:
             messagebox.showinfo("Warning!!!", "Confirmed password don't match!")

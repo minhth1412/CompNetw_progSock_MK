@@ -1,8 +1,8 @@
-﻿from ctypes import c_int
-import sys
+﻿import sys
 import socket
+from tkinter import Tk
 import tkinter as tk                # python 3
-from tkinter import font as tkfont
+from tkinter import font as tkFont
 from GetAPI import *
 from tkinter import messagebox
 import SearchingPage
@@ -49,51 +49,43 @@ class AppClient(tk.Tk):
         posy  = 100
         self.wm_geometry("%dx%d+%d+%d" % (sizex, sizey, posx, posy))
         self.resizable(width = False, height = False)
+        self.title_font = tkFont.Font(family = 'Helvetica', size = 32, weight = "bold", slant = "italic")
+        self.miniFont = tkFont.Font(family = 'Helvetica', size = 14, slant = "italic")
 
         # container chứa 3 frame của AppClient: 1. StartPage, 2. SignIn, 3. SignUp
         container = tk.Frame(self)
-        container.pack(side = "top")
+        container.grid()
         container.grid_rowconfigure(0, weight = 1)
         container.grid_columnconfigure(0, weight = 1)
 
         # Tạo frames cho container, gán nhãn tương đương với tên container
         self.frames = {}
-        for F in (StartPage, SignIn, SignUp):
+        for F in (HomePage, StartPage, SignIn, SignUp):
             page_name = F.__name__
             frame = F(parent = container, controller = self)
             self.frames[page_name] = frame
 
             # Đặt tất cả các frame page ở cùng một vị trí trên Window của AppClient
             frame.grid(row = 0, column = 0, sticky = "nsew")
-        self.HomePage()
-
-    def HomePage(self):
-        # Hiện HomePage trước tiên
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 32, weight = "bold", slant = "italic")
-        self.miniFont = tkfont.Font(family = 'Helvetica', size = 14, slant = "italic")
-
-        label = tk.Label(self, text = "CLIENT", font =  self.title_font)     
-        ipLabel = tk.Label(self, text = "IP Server: ", font = self.miniFont)
-        IP = tk.StringVar()
-        ipEntry = tk.Entry(self, textvariable = IP, font = self.miniFont)
-        notifyLabel = tk.Label(self, text = "")
-        connect = tk.Button(self, text = "CONNECT", padx = 50, pady= 10, font= self.miniFont, command = lambda: self.checkIP(IP))
-
-        for F in (label, ipLabel, ipEntry, notifyLabel, connect):
-            F.grid()
-
+        self.showFrame("HomePage")
     
     def checkIP(self, ip):
-        HOST = str(ip.get())
+        HOST = "127.0.0.1"
+        #HOST = str(ip.get())
         # Đồng nhất port với bên server
-        
+        print(HOST)
         SERVER_addr = (HOST, PORT) 
+        msg = "error"
         try: 
+            #print("ok")
             CLIENT.connect(SERVER_addr)                     # Kết nối tới SERVER
+            #print("ok")
             CLIENT.sendall(Client_enter.encode(FORMAT))     # Gửi thông tin cho SERVER là đã kết nối
+            msg = CLIENT.recv(1024).decode(FORMAT)
             self.showFrame("StartPage")                     # Vào trang Start
-            CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
-        except:
+            CLIENT.settimeout(10)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
+        except (msg != Okay):
+            print(msg)
             messagebox.showinfo("Notification!", "Can't connect to SERVER with given IP!")
 
     # Hàm hiện frame page_name đã lưu trong self.frames
@@ -113,6 +105,22 @@ class AppClient(tk.Tk):
         self.destroy()
         CLIENT.close()
 
+class HomePage(tk.Frame):
+    def __init__(self, parent, controller):
+        super(HomePage, self).__init__()
+
+        self.title_font = tkFont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
+        # Hiện HomePage trước tiên
+        label = tk.Label(self, text = "CLIENT", font = self.title_font)     
+        ipLabel = tk.Label(self, text = "IP Server: ", font = self.title_font)
+        IP = tk.StringVar()
+        ipEntry = tk.Entry(self, textvariable = IP, font = self.title_font)
+        notifyLabel = tk.Label(self, text = "")
+        connect = tk.Button(self, text = "CONNECT", padx = 50, pady= 10, font= self.title_font, command = lambda: controller.checkIP(IP))
+
+        for F in (label, ipLabel, ipEntry, notifyLabel, connect):
+            F.grid()
+
 
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
@@ -121,7 +129,7 @@ class StartPage(tk.Frame):
         label = tk.Label(self, text = "CLIENT", font = controller.title_font)
         label.pack(side = "top", pady = 20)
 
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
+        self.title_font = tkFont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
         SignInButton = tk.Button(self, text = "SIGN IN", padx = 80, pady = 17, font = self.title_font,
                             command = lambda: controller.showFrame("SignIn"))
         SignUpButton = tk.Button(self, text = "SIGN UP", padx = 75, pady = 17, font = self.title_font,
@@ -141,7 +149,7 @@ class SignIn(tk.Frame):
         loginText_label = tk.Label(self, text = "SIGN IN CLIENT", font = self.controller.title_font, pady = 20)
         
         ##userName label
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 14, slant = "italic")
+        self.title_font = tkFont.Font(family = 'Helvetica', size = 14, slant = "italic")
         usernameLabel = tk.Label(self, text ="Username: ", font = self.title_font)
         username = tk.StringVar()
         usernameEntry = tk.Entry(self, textvariable = username, font = self.title_font)
@@ -187,8 +195,7 @@ class SignIn(tk.Frame):
                 messagebox.showinfo("Notification!", "Incorrect password!\nTry again!")
             elif check == Okay:
                 messagebox.showinfo("Notification!", "Welcome back, bro!")
-                app = SearchingPage.SearchingApp()
-                app.mainloop()
+                SearchingPage()               
                 return   
 
         except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
@@ -196,7 +203,7 @@ class SignIn(tk.Frame):
             ############################
             # Quay lại GUI nhập IP chỗ này nha ---------------
             ############################
-            self.controller.HomePage()            
+            self.controller.showFrame("HomePage")           
             
 class SignUp(tk.Frame):
     def __init__(self, parent, controller):
@@ -206,7 +213,7 @@ class SignUp(tk.Frame):
         self.controller = controller
 
         loginText_label = tk.Label(self, text = "SIGN UP CLIENT", font = self.controller.title_font)      
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 14, slant = "italic")
+        self.title_font = tkFont.Font(family = 'Helvetica', size = 14, slant = "italic")
 
         ##userName label
         usernameLabel = tk.Label(self, text = "Username: ", font = self.title_font)
@@ -264,7 +271,7 @@ class SignUp(tk.Frame):
                 ############################
                 # Quay lại GUI nhập IP chỗ này nha ---------------
                 ############################
-                self.controller.HomePage()
+                self.controller.showFrame("HomePage")
 
 try:
     if __name__ == "__main__":

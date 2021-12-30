@@ -1,12 +1,17 @@
 import tkinter as tk                # python 3
-from tkinter import mainloop, ttk
+from tkinter import ttk
 from tkinter.constants import CENTER
 from tkinter.messagebox import showinfo
 from tkinter import font as tkfont
 from GetAPI import *
+import json
 
-# cursor chứa dữ liệu của giá trị đồng tiền
-cursor = getAPIfromWeb()
+# cursor chứa dữ liệu của giá trị đồng tiền, lấy từ file webData
+try:
+    with open("webData.json",'r') as file:
+        cursor = json.load(file)
+except:
+    cursor = getAPIfromWeb()
 
 class SearchingApp(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -47,25 +52,29 @@ class SearchingApp(tk.Tk):
         frame = self.frames[page_name]
         frame.tkraise()
 
+    def Back(self):
+        self.destroy()
+
 # Page tra cứu
 class SearchingPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         # Là một frame WINDOW của APP nên gọi lại controller (self = tk.Tk)
-        self.controller = controller
         label = tk.Label(self, text = "SEARCHING PAGE", font = controller.title_font)
         label.pack(side = "top", pady = 100)
 
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
+        title_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
 
-        DAYBUTTON = tk.Button(self, text = " NOW A DAY ", padx = 100, pady = 50, font = self.title_font,
+        DayButton = tk.Button(self, text = " NOW A DAY ", padx = 100, pady = 35, font = title_font,
                             command = lambda: controller.showFrame("SearchingDay"))
-        CURRENCYBUTTON = tk.Button(self, text = "BY CURRENCY", padx = 91, pady = 50, font = self.title_font,
+        CurrencyButton = tk.Button(self, text = "BY CURRENCY", padx = 91, pady = 35, font = title_font,
                             command = lambda: controller.showFrame("SearchingCurrency"))
-
-        DAYBUTTON.pack()
-        CURRENCYBUTTON.pack()
-
+        BackButton = tk.Button(self, text = "BACK", padx = 120, pady = 35, font = title_font,
+                            command = lambda: controller.Back())
+        DayButton.pack()
+        CurrencyButton.pack()
+        BackButton.pack()
+    
 class SearchingDay(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -105,10 +114,10 @@ class SearchingDay(tk.Frame):
         scrollbar.grid(row = 0, column = 1, sticky = 'ns')
 
         # Phong chữ
-        self.title_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
+        title_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
 
         # Nút quay về Searching Page
-        button = tk.Button(self, text = "Back to Searching Page", font = self.title_font,
+        button = tk.Button(self, text = "Back to Searching Page", font = title_font,
                            command = lambda: self.controller.showFrame("SearchingPage"))
         button.grid(padx = 0, pady = 0, ipadx = 20, ipady = 10)
 
@@ -219,7 +228,3 @@ class SearchingCurrency(tk.Frame):
             record = item['values']
             # show thông tin item vào table
             showinfo(title = 'Information', message = ','.join(record))    
-
-if __name__ == "__main__":
-    app = SearchingApp()
-    app.mainloop()

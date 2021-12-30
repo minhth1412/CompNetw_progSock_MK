@@ -11,8 +11,7 @@ import socket
 import threading
 import time
 
-HOST = "127.0.0.1"   #Tạo server với IP lấy từ máy này bằng cách loopback lại máy này
-print(HOST)    
+HOST = "127.0.0.1"   #Tạo server với IP lấy từ máy này bằng cách loopback lại máy này    
 # Thiết lập port lắng nghe, không để nhỏ hơn 1024, tránh bị trùng với port trên máy tính, đồng bộ với bên client
 PORT = 7654
 FORMAT = "utf8"
@@ -25,13 +24,15 @@ UNF = "UsernameNotFound"
 wrongPass = "wrongPassword"
 sendAgain = "sendAgain"
 valUser = "ValidUsername"
+NotRecv = "NotReceive"
 
 # Các message được client gửi tới sẽ được liệt kê dưới đây
 Client_exit = "clientexit"
 Client_enter= "cliententer"
+Close_Server = "close"
 
 #############
-LOGIN = 'LOGIN'
+SIGNIN = 'SIGNIN'
 SIGNUP = 'SIGNUP'
 
 # tạo socket SERVER, với địa chỉ IPv4, giao thức TCP
@@ -73,7 +74,12 @@ class AppServer(tk.Tk):
 
         # Hiện SearchingPage trước tiên
         self.showFrame("StartPage")
-    
+
+    def EndServer(self):
+        self.destroy()
+        SERVER.close()
+        sys.exit()   
+
     # Hàm showFrame để hiện các frame page đã lưu trong self.frames
     def showFrame(self, page_name):
         '''Show a frame for the given page name'''
@@ -99,9 +105,10 @@ class Server(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.controller = controller
-        self.items = []
+        self.accounts = []
         self.connections = self.Connect()
         self.tile_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
+        self.miniFont = tkfont.Font(family = 'Helvetica', size = 10, weight = "bold", slant = "italic")
         
     #---------------------------------------------
     
@@ -111,13 +118,13 @@ class Server(tk.Frame):
         while True:
             # cursor chứa dữ liệu của giá trị đồng tiền
             cursor = getAPIfromWeb()
-            time.sleep(1800)
+            time.sleep(1800)    #Nghỉ 30p cho lần lặp kế tiếp
     
     #-----------------------------------------------
 
     def SignIn(self, conn: socket):
         #server nhận username + password  
-
+    
         username = conn.recv(1024).decode(FORMAT)
         conn.sendall(Okay.encode(FORMAT))
         password = conn.recv(1024).decode(FORMAT)
@@ -150,15 +157,15 @@ class Server(tk.Frame):
         conn.sendall(Okay.encode(FORMAT))
         password = conn.recv(1024).decode(FORMAT)
         conn.sendall(Okay.encode(FORMAT))
-        
-        try:
-            with open("userData.json",'r') as file:
-                file_data = json.load(file)
-            content = {
+        content = {
                 username: {
                     "password": password
                 }
             }
+        
+        try:
+            with open("userData.json",'r') as file:
+                file_data = json.load(file)        
             if username in file_data:
                 conn.sendall(valUser.encode(FORMAT))
             else:
@@ -166,29 +173,34 @@ class Server(tk.Frame):
                 with open("userData.json", "w") as outfile:
                     json.dump(file_data, outfile, indent = 4)
                 conn.sendall(Okay.encode(FORMAT))
+
+                self.showAccount()
+
                 return
 
         except FileNotFoundError:                       #Trường hợp ko có file userData thì ta tạo file mới và lưu
             with open("userData.json", "w") as outfile:
                 json.dump(content, outfile, indent = 4)
             conn.sendall(Okay.encode(FORMAT))           #Send Okay, đăng kí thành công
+            
+            self.showAccount()
+            
             return
         
     #----------------------------------------------
 
     def connClient(self, conn: socket, addr):
         msg = None
-        while (msg != "END"):
+        while (msg != Client_exit):
             msg = conn.recv(1024).decode(FORMAT)        
-            if (msg == LOGIN):
-                Server.SignIn(conn)
+            if (msg == SIGNIN):
+                Server.SignIn(self, conn)
             elif (msg == SIGNUP):
-                Server.SignUp(conn)
+                Server.SignUp(self, conn)
             elif (msg == Client_enter):
-                print("ok")
                 conn.sendall(Okay.encode(FORMAT))
 
-        tk.Label(self.mycanvas, text = "CLIENT" + str(addr) + "CLOSE !!", font = self.tile_font).grid()
+        tk.Label(self.mycanvas, text = "CLIENT" + str(addr) + "CLOSE !!", font = self.miniFont).grid(sticky="ns")
         conn.close()
 
     def init_RunThread(self):
@@ -198,7 +210,7 @@ class Server(tk.Frame):
         while (True):
             try:
                 conn, addr = SERVER.accept()
-                tk.Label(self.mycanvas, text = "CLIENT " + str(addr) + "CONNECTED !!", font = self.tile_font).grid()
+                tk.Label(self.mycanvas, text = "CLIENT " + str(addr) + "CONNECTED !!", font = self.miniFont).grid(sticky= "ns")
                     
                 # gọi đa luồng cho Server
                 thread = threading.Thread(target = self.connClient, args = (conn, addr))
@@ -212,8 +224,12 @@ class Server(tk.Frame):
 
     def init(self):
         startServer = threading.Thread(target= self.init_RunThread)
+        updateCursor = threading.Thread(target= self.updateAPIper30)
         startServer.daemon = True
-        startServer.start()
+        updateCursor.daemon = True
+        startServer.start()    
+        updateCursor.start()
+
     def Connect(self):  
         # Vẽ frame chứa các button 
         self.mycanvas = tk.Canvas(self, height = 360, width = 300)
@@ -232,7 +248,7 @@ class Server(tk.Frame):
         self.showAccount()
 
         # Button back về Searching Page 
-        button = tk.Button(self, text = "END SERVER", command = lambda: self.controller.showFrame("StartPage"),
+        button = tk.Button(self, text = "END SERVER", command = lambda: self.controller.EndServer(),
                                      height = 2, width = 40)
         button.grid(row = 1, column = 0)
         self.init()
@@ -256,15 +272,15 @@ class Server(tk.Frame):
             with open("userData.json",'r') as file:
                 file_data = json.load(file)
             for n in file_data:
-                self.items.append((n, file_data[n]['password']))
+                self.accounts.append((n, file_data[n]['password']))
         except:
             nUser = "No one sign up"
             nPass = "No one sign up"
-            self.items.append((nUser, nPass))
+            self.accounts.append((nUser, nPass))
 
         # Thêm phần nội dung vào table
-        for item in self.items:
-            table.insert('', tk.END, values = item)
+        for account in self.accounts:
+            table.insert('', tk.END, values = account)
 
         # Tạo table và grid vào frame
         table.bind('<<TreeviewSelect>>', self.item_selected)
@@ -275,9 +291,8 @@ class Server(tk.Frame):
         table.configure(yscroll = scrollbar.set)
         scrollbar.grid(row = 0, column = 2, sticky = "ns")
 
-        # Cập nhật cho frame
         self.table = table
-
+        self.accounts.clear()
 
     def item_selected(self, event):
         for selected_item in self.table.selection():
@@ -285,9 +300,13 @@ class Server(tk.Frame):
             item = self.table.item(selected_item)
             record = item['values']
             # show thông tin item vào table
-            showinfo(title = 'Information', message = ','.join(record))    
+            showinfo(title = 'Information', message = ','.join(record))   
 
-if __name__ == "__main__":
 
-    app = AppServer()
-    app.mainloop()
+app = AppServer()
+
+def Close():
+    if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+        app.End()
+
+app.mainloop()

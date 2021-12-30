@@ -5,7 +5,7 @@ import tkinter as tk                # python 3
 from tkinter import font as tkFont
 from GetAPI import *
 from tkinter import messagebox
-import SearchingPage
+from SearchingPage import *
 
 # Remember to handle message send to server between two comment like the one below:
 ##################
@@ -19,6 +19,7 @@ HEADER = 64
 # Các message gửi sang server sẽ được liệt kê dưới đây
 Client_exit = "clientexit"
 Client_enter= "cliententer"
+Close_Server = "close"
 
 # Các message được server gửi tới sẽ được liệt kê dưới đây
 Okay = "oke"            # Đã nhận được message
@@ -73,19 +74,17 @@ class AppClient(tk.Tk):
         HOST = "127.0.0.1"
         # HOST = str(ip.get())
         # Đồng nhất port với bên server
-        print(HOST)
+
         SERVER_addr = (HOST, PORT) 
-        msg = "error"
         try: 
             #print("ok")
             CLIENT.connect(SERVER_addr)                     # Kết nối tới SERVER
             #print("ok")
             CLIENT.sendall(Client_enter.encode(FORMAT))     # Gửi thông tin cho SERVER là đã kết nối
-            msg = CLIENT.recv(1024).decode(FORMAT)
-            self.showFrame("StartPage")                     # Vào trang Start
-            CLIENT.settimeout(10)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
+            CLIENT.recv(1024).decode(FORMAT)
+            self.showFrame("StartPage")                     # Vào trang Start  
+            CLIENT.settimeout(10)                            # Chờ phản hồi trong 10s, nếu ko phản hồi thì hiện thông báo dưới
         except:
-            print(msg)
             messagebox.showinfo("Notification!", "Can't connect to SERVER with given IP!")
 
     # Hàm hiện frame page_name đã lưu trong self.frames
@@ -98,9 +97,8 @@ class AppClient(tk.Tk):
         frame.tkraise()
 
     def End(self):
-        if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
             ##################
-            CLIENT.sendall(Client_exit.encode(FORMAT))      #Gửi thông tin cho SERVER thông báo client đã đóng
+        CLIENT.sendall(Client_exit.encode(FORMAT))      #Gửi thông tin cho SERVER thông báo client đã đóng
             ##################
         self.destroy()
         CLIENT.close()
@@ -125,7 +123,7 @@ class HomePage(tk.Frame):
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-
+        
         label = tk.Label(self, text = "CLIENT", font = controller.title_font)
         label.pack(side = "top", pady = 20)
 
@@ -139,8 +137,8 @@ class StartPage(tk.Frame):
 
         SignInButton.pack()
         SignUpButton.pack()
-        EndClient.pack()  
-
+        EndClient.pack()
+        
 class SignIn(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -180,13 +178,14 @@ class SignIn(tk.Frame):
 
         CLIENT.sendall(SIGNIN.encode(FORMAT))
         # Gửi username và password đã nhập tới SERVER để check
-    
-        CLIENT.sendall(Username.encode(FORMAT))
-        CLIENT.recv(1024).decode(FORMAT)
-        CLIENT.sendall(Password.encode(FORMAT))
-        check = CLIENT.recv(1024).decode(FORMAT)
 
+        openSearchPage = 0
         try:
+            CLIENT.sendall(Username.encode(FORMAT))
+            CLIENT.recv(1024).decode(FORMAT)
+            CLIENT.sendall(Password.encode(FORMAT))
+            check = CLIENT.recv(1024).decode(FORMAT)
+
             if check == FNF:
                 messagebox.showwarning("Warning!!!", "No data for login!")
             elif check == UNF:
@@ -194,17 +193,20 @@ class SignIn(tk.Frame):
             elif check == wrongPass:
                 messagebox.showinfo("Notification!", "Incorrect password!\nTry again!")
             elif check == Okay:
-                messagebox.showinfo("Notification!", "Welcome back, bro!")
-                SearchingPage()               
+                messagebox.showinfo("Notification!", "Welcome back, bro!") 
+                openSearchPage = 1
+                if openSearchPage == 1:
+                    newWind = SearchingApp()
+                    newWind.mainloop() 
                 return   
-
+            
         except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
             messagebox.showwarning("Warning!!!", "Server corrupted!")
             ############################
             # Quay lại GUI nhập IP chỗ này nha ---------------
             ############################
-            self.controller.showFrame("HomePage")           
-            
+            self.controller.showFrame("HomePage")   
+
 class SignUp(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -244,7 +246,7 @@ class SignUp(tk.Frame):
         
         if len(Username) == 0 or len(Password) == 0 or len(Cpassword) == 0:
             messagebox.showwarning("Warning!!!", "Don't leave any field empty!")
-        elif Cpassword != password:
+        elif Cpassword != Password:
             messagebox.showinfo("Warning!!!", "Confirmed password don't match!")
         else:
             # Gửi lệnh đăng ký đến server
@@ -273,9 +275,12 @@ class SignUp(tk.Frame):
                 ############################
                 self.controller.showFrame("HomePage")
 
-try:
-    if __name__ == "__main__":
-        app = AppClient()
-        app.mainloop()
-finally:
-    CLIENT.close()
+
+app = AppClient()
+
+def Close():
+    if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+        app.End()
+
+app.protocol("WM_DELETE_WINDOW", Close)
+app.mainloop()

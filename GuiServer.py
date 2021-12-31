@@ -1,9 +1,10 @@
 import tkinter as tk                # python 3
-from tkinter import mainloop, ttk
+from tkinter import Image, Label, mainloop, ttk
 from tkinter import messagebox
 from tkinter.constants import CENTER
 from tkinter.messagebox import showinfo
 from tkinter import font as tkfont
+from typing import Container
 from GetAPI import *
 import sys
 import json
@@ -35,6 +36,8 @@ Close_Server = "close"
 SIGNIN = 'SIGNIN'
 SIGNUP = 'SIGNUP'
 
+Clients = []
+
 # tạo socket SERVER, với địa chỉ IPv4, giao thức TCP
 try:
     SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -49,16 +52,18 @@ class AppServer(tk.Tk):
         # Tạo WINDOW cho APP 
         self.title_font = tkfont.Font(family = 'Helvetica', size = 32, weight = "bold", slant = "italic")
         self.title("SEARCHING APP")
-        sizex = 845
-        sizey = 550
+        sizex = 710
+        sizey = 400
         posx  = 100
         posy  = 100
-        self.wm_geometry("%dx%d+%d+%d" % (sizex, sizey, posx, posy))
+        self.geometry("%dx%d+%d+%d" % (sizex, sizey, posx, posy))
         self.resizable(width = False, height = False)
 
+        self.isEndServer = 0
         # container chứa 3 frame của APP: 1. SearchingPage, 2. SearchingDay, 3. SearchingCurrency
         container = tk.Frame(self)
         container.pack(side = "top")
+        
         container.grid_rowconfigure(0, weight = 1)
         container.grid_columnconfigure(0, weight = 1)
 
@@ -76,9 +81,13 @@ class AppServer(tk.Tk):
         self.showFrame("StartPage")
 
     def EndServer(self):
-        self.destroy()
-        SERVER.close()
-        sys.exit()   
+        if self.isEndServer == 0:
+            messagebox.showwarning("Exit","SERVER CLOSED !!")
+            for X in Clients:
+                X.close()
+            self.isEndServer = 1
+            self.destroy()
+            SERVER.close() 
 
     # Hàm showFrame để hiện các frame page đã lưu trong self.frames
     def showFrame(self, page_name):
@@ -113,11 +122,10 @@ class Server(tk.Frame):
     #---------------------------------------------
     
     # đưa qua file json
-    def updateAPIper30(): 
-        global cursor
+    def updateAPIper30(self): 
         while True:
             # cursor chứa dữ liệu của giá trị đồng tiền
-            cursor = getAPIfromWeb()
+            getAPIfromWeb()
             time.sleep(1800)    #Nghỉ 30p cho lần lặp kế tiếp
     
     #-----------------------------------------------
@@ -190,18 +198,22 @@ class Server(tk.Frame):
     #----------------------------------------------
 
     def connClient(self, conn: socket, addr):
-        msg = None
-        while (msg != Client_exit):
-            msg = conn.recv(1024).decode(FORMAT)        
-            if (msg == SIGNIN):
-                Server.SignIn(self, conn)
-            elif (msg == SIGNUP):
-                Server.SignUp(self, conn)
-            elif (msg == Client_enter):
-                conn.sendall(Okay.encode(FORMAT))
+        try:
+            msg = None
+            while (msg != Client_exit and self.controller.isEndServer == 0):
+                msg = conn.recv(1024).decode(FORMAT)        
+                if (msg == SIGNIN):
+                    Server.SignIn(self, conn)
+                elif (msg == SIGNUP):
+                    Server.SignUp(self, conn)
+                elif (msg == Client_enter):
+                    conn.sendall(Okay.encode(FORMAT))
 
-        tk.Label(self.mycanvas, text = "CLIENT" + str(addr) + "CLOSE !!", font = self.miniFont).grid(sticky="ns")
-        conn.close()
+            tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CLOSE !!", font = self.miniFont).grid(column = 0, sticky="nw")
+            conn.close()
+            Clients.remove(conn)
+        except:
+            return
 
     def init_RunThread(self):
         #---------------------------------------------
@@ -210,40 +222,36 @@ class Server(tk.Frame):
         while (True):
             try:
                 conn, addr = SERVER.accept()
-                tk.Label(self.mycanvas, text = "CLIENT " + str(addr) + "CONNECTED !!", font = self.miniFont).grid(sticky= "ns")
+                Clients.append(conn)
+                tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CONNECTED !!", font = self.miniFont).grid(column = 0, sticky= "nw")
                     
                 # gọi đa luồng cho Server
                 thread = threading.Thread(target = self.connClient, args = (conn, addr))
                 thread.daemon = True
                 thread.start()
 
-            except KeyboardInterrupt:
-                messagebox.showwarning("SERVER CLOSED !!")
-                conn.close()
-                SERVER.close()
-
-    def init(self):
-        startServer = threading.Thread(target= self.init_RunThread)
-        updateCursor = threading.Thread(target= self.updateAPIper30)
-        startServer.daemon = True
-        updateCursor.daemon = True
-        startServer.start()    
-        updateCursor.start()
+            except:
+                if self.controller.isEndServer == 0:
+                    self.controller.isEndServer = 1
+                    messagebox.showwarning("Exit","SERVER CLOSED !!")
+                    for X in Clients:
+                        X.Close()
+                    SERVER.close()
 
     def Connect(self):  
         # Vẽ frame chứa các button 
-        self.mycanvas = tk.Canvas(self, height = 360, width = 300)
-        self.mycanvas.grid(row = 0,column = 0)
+        self.mycanvas = tk.Canvas(self, height = 360, width = 280)
+        self.mycanvas.grid(row = 0, column = 0, sticky= "nw")
 
         # Tạo thanh cuộn cho frame chứa button
-        yscrollbar = ttk.Scrollbar(self, orient = "vertical", command = self.mycanvas.yview)
-        yscrollbar.grid(row = 0, column = 0, sticky = "ne", rowspan = 100, ipady = 159)
+        yscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL, command = self.mycanvas.yview)
+        yscrollbar.grid(row = 0, column = 0, sticky = "ne", rowspan = 100, ipady = 158)
 
         self.mycanvas.configure(yscrollcommand = yscrollbar.set)
         self.mycanvas.bind('<Configure>', lambda e: self.mycanvas.configure(scrollregion = self.mycanvas.bbox('all')))
 
-        myframe = tk.Frame(self.mycanvas)
-        self.mycanvas.create_window((0,0), window = myframe, anchor = "nw")
+        self.myframe = tk.Frame(self.mycanvas)
+        self.mycanvas.create_window((0,0), window = self.myframe, anchor = "nw")
 
         self.showAccount()
 
@@ -251,7 +259,13 @@ class Server(tk.Frame):
         button = tk.Button(self, text = "END SERVER", command = lambda: self.controller.EndServer(),
                                      height = 2, width = 40)
         button.grid(row = 1, column = 0)
-        self.init()
+        
+        startServer = threading.Thread(target = self.init_RunThread)
+        updateCursor = threading.Thread(target = self.updateAPIper30)
+        startServer.daemon = True
+        updateCursor.daemon = True
+        startServer.start()    
+        updateCursor.start()
         
     # Hàm show Currency khi click vào button có mang tiền tệ
     def showAccount(self):
@@ -274,8 +288,8 @@ class Server(tk.Frame):
             for n in file_data:
                 self.accounts.append((n, file_data[n]['password']))
         except:
-            nUser = "No one sign up"
-            nPass = "No one sign up"
+            nUser = "None"
+            nPass = "None"
             self.accounts.append((nUser, nPass))
 
         # Thêm phần nội dung vào table
@@ -284,7 +298,7 @@ class Server(tk.Frame):
 
         # Tạo table và grid vào frame
         table.bind('<<TreeviewSelect>>', self.item_selected)
-        table.grid(row = 0, column = 1, sticky = "nw")
+        table.grid(row = 0, column = 1, sticky = "ne")
 
         # Tạo và grid thanh cuộn cho table
         scrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL, command = table.yview)
@@ -302,11 +316,13 @@ class Server(tk.Frame):
             # show thông tin item vào table
             showinfo(title = 'Information', message = ','.join(record))   
 
-
 app = AppServer()
 
 def Close():
     if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
-        app.End()
+        app.EndServer()
 
+app.protocol("WM_DELETE_WINDOW", Close)
 app.mainloop()
+
+        

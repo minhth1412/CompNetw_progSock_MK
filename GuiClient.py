@@ -52,10 +52,12 @@ class AppClient(tk.Tk):
         self.resizable(width = False, height = False)
         self.title_font = tkFont.Font(family = 'Helvetica', size = 32, weight = "bold", slant = "italic")
         self.miniFont = tkFont.Font(family = 'Helvetica', size = 14, slant = "italic")
+        self.isClientClose = 0      #  0 = chua dong, 1  = dong roi
 
+        self.configure(bg = "gray")
         # container chứa 3 frame của AppClient: 1. StartPage, 2. SignIn, 3. SignUp
         container = tk.Frame(self)
-        container.grid()
+        container.pack(side = "top")
         container.grid_rowconfigure(0, weight = 1)
         container.grid_columnconfigure(0, weight = 1)
 
@@ -73,17 +75,14 @@ class AppClient(tk.Tk):
     def checkIP(self, ip):
         HOST = "127.0.0.1"
         # HOST = str(ip.get())
-        # Đồng nhất port với bên server
-
+        
         SERVER_addr = (HOST, PORT) 
         try: 
-            #print("ok")
             CLIENT.connect(SERVER_addr)                     # Kết nối tới SERVER
-            #print("ok")
             CLIENT.sendall(Client_enter.encode(FORMAT))     # Gửi thông tin cho SERVER là đã kết nối
             CLIENT.recv(1024).decode(FORMAT)
             self.showFrame("StartPage")                     # Vào trang Start  
-            CLIENT.settimeout(10)                            # Chờ phản hồi trong 10s, nếu ko phản hồi thì hiện thông báo dưới
+            CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
         except:
             messagebox.showinfo("Notification!", "Can't connect to SERVER with given IP!")
 
@@ -97,11 +96,22 @@ class AppClient(tk.Tk):
         frame.tkraise()
 
     def End(self):
-            ##################
-        CLIENT.sendall(Client_exit.encode(FORMAT))      #Gửi thông tin cho SERVER thông báo client đã đóng
-            ##################
-        self.destroy()
-        CLIENT.close()
+        if self.isClientClose == 0:
+            try:
+                CLIENT.sendall(Client_exit.encode(FORMAT))      #Gửi thông tin cho SERVER thông báo client đã đóng
+                if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+                    self.isClientClose = 1
+                else:
+                    return
+            except:
+                if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+                    self.isClientClose = 1
+                else:
+                    return
+            finally:
+                self.destroy()
+                CLIENT.close()
+                sys.exit()
 
 class HomePage(tk.Frame):
     def __init__(self, parent, controller):
@@ -117,8 +127,7 @@ class HomePage(tk.Frame):
         connect = tk.Button(self, text = "CONNECT", padx = 50, pady= 10, font= self.title_font, command = lambda: controller.checkIP(IP))
 
         for F in (label, ipLabel, ipEntry, notifyLabel, connect):
-            F.grid()
-
+            F.pack()
 
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
@@ -162,7 +171,7 @@ class SignIn(tk.Frame):
         backButton = tk.Button(self, text = "BACK", padx = 35, pady= 5, command = lambda: controller.showFrame("StartPage"))
         
         for F in (loginText_label, usernameLabel, usernameEntry, passwordLabel, passwordEntry, SignInButton, backButton):
-            F.grid()
+            F.pack()
 
     # Hàm check user bằng cách gửi thông tin cho server kiểm duyệt
     def checkAccount(self, username, password):
@@ -176,11 +185,11 @@ class SignIn(tk.Frame):
             messagebox.showwarning("Warning!!!", "Don't leave any field empty!")
             return
 
-        CLIENT.sendall(SIGNIN.encode(FORMAT))
         # Gửi username và password đã nhập tới SERVER để check
 
         openSearchPage = 0
         try:
+            CLIENT.sendall(SIGNIN.encode(FORMAT))
             CLIENT.sendall(Username.encode(FORMAT))
             CLIENT.recv(1024).decode(FORMAT)
             CLIENT.sendall(Password.encode(FORMAT))
@@ -196,9 +205,9 @@ class SignIn(tk.Frame):
                 messagebox.showinfo("Notification!", "Welcome back, bro!") 
                 openSearchPage = 1
                 if openSearchPage == 1:
-                    newWind = SearchingApp()
-                    newWind.mainloop() 
-                return   
+                    run()
+ 
+            CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
             
         except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
             messagebox.showwarning("Warning!!!", "Server corrupted!")
@@ -237,7 +246,7 @@ class SignUp(tk.Frame):
         backButton = tk.Button(self, text = "BACK", padx = 35, pady= 5, command = lambda: controller.showFrame("StartPage"))
         
         for F in (loginText_label, usernameLabel, usernameEntry, passwordLabel, passwordEntry, confirm_passwordLabel, confirm_passwordEntry, loginButton, backButton):
-            F.grid()
+            F.pack()
              
     def checkSignup(self, username, password, confirm_password):
         Username = str(username.get())
@@ -250,15 +259,16 @@ class SignUp(tk.Frame):
             messagebox.showinfo("Warning!!!", "Confirmed password don't match!")
         else:
             # Gửi lệnh đăng ký đến server
-            CLIENT.sendall(SIGNUP.encode(FORMAT))
-
-            CLIENT.sendall(Username.encode(FORMAT))
-            CLIENT.recv(1024).decode(FORMAT)
-            CLIENT.sendall(Password.encode(FORMAT))
-            CLIENT.recv(1024).decode(FORMAT)
-
-            check = CLIENT.recv(1024).decode(FORMAT)
+            
             try:
+                CLIENT.sendall(SIGNUP.encode(FORMAT))
+
+                CLIENT.sendall(Username.encode(FORMAT))
+                CLIENT.recv(1024).decode(FORMAT)
+                CLIENT.sendall(Password.encode(FORMAT))
+                CLIENT.recv(1024).decode(FORMAT)
+
+                check = CLIENT.recv(1024).decode(FORMAT)
                 if check == valUser:
                     messagebox.showwarning("Warning!!!", "Username is already exist!")
                     return
@@ -268,18 +278,18 @@ class SignUp(tk.Frame):
                     password.set("")
                     confirm_password.set("")
                     return   
-            except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))
-                messagebox.showwarning("Warning!!!", "Server corrupted!")
-                ############################
-                # Quay lại GUI nhập IP chỗ này nha ---------------
-                ############################
-                self.controller.showFrame("HomePage")
 
+                CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
+     
+            except:     #Không nhận lại phản hồi từ Server
+                messagebox.showwarning("Warning!!!", "Server corrupted!")
+                # Quay lại GUI nhập IP 
+                self.controller.showFrame("HomePage")
 
 app = AppClient()
 
 def Close():
-    if messagebox.askokcancel("Exit", "Wanna quit bruh?"):
+    if app.isClientClose == 0:
         app.End()
 
 app.protocol("WM_DELETE_WINDOW", Close)

@@ -44,8 +44,8 @@ class AppClient(tk.Tk):
 
         # Tạo WINDOW cho AppClient
         self.title("CLIENT")
-        sizex = 845
-        sizey = 400
+        sizex = 400
+        sizey = 350
         posx  = 100
         posy  = 100
         self.wm_geometry("%dx%d+%d+%d" % (sizex, sizey, posx, posy))
@@ -54,7 +54,6 @@ class AppClient(tk.Tk):
         self.miniFont = tkFont.Font(family = 'Helvetica', size = 14, slant = "italic")
         self.isClientClose = 0      #  0 = chua dong, 1  = dong roi
 
-        self.configure(bg = "gray")
         # container chứa 3 frame của AppClient: 1. StartPage, 2. SignIn, 3. SignUp
         container = tk.Frame(self)
         container.pack(side = "top")
@@ -111,7 +110,7 @@ class AppClient(tk.Tk):
             finally:
                 self.destroy()
                 CLIENT.close()
-                sys.exit()
+                #sys.exit()
 
 class HomePage(tk.Frame):
     def __init__(self, parent, controller):
@@ -206,7 +205,8 @@ class SignIn(tk.Frame):
                 openSearchPage = 1
                 if openSearchPage == 1:
                     run()
- 
+                    return
+
             CLIENT.settimeout(5)                            # Chờ phản hồi trong 5s, nếu ko phản hồi thì hiện thông báo dưới
             
         except:     #Không nhận lại phản hồi từ Server---------------------------- (quay lại chỗ nhập IP hử :)))

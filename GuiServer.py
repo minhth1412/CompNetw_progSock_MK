@@ -116,6 +116,8 @@ class Server(tk.Frame):
         self.controller = controller
         self.accounts = []
         self.connections = self.Connect()
+        self.cli = 0
+        self.listConnect = []
         self.tile_font = tkfont.Font(family = 'Helvetica', size = 14, weight = "bold", slant = "italic")
         self.miniFont = tkfont.Font(family = 'Helvetica', size = 10, weight = "bold", slant = "italic")
         
@@ -209,7 +211,9 @@ class Server(tk.Frame):
                 elif (msg == Client_enter):
                     conn.sendall(Okay.encode(FORMAT))
 
-            tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CLOSE !!", font = self.miniFont).grid(column = 0, sticky="nw")
+            self.listConnect.append("CLIENT " + str(addr) + " CLOSE !!")
+            #tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CLOSE !!", font = self.miniFont).grid(row = self.cli, column = 0)
+            self.updateScroll()
             conn.close()
             Clients.remove(conn)
         except:
@@ -223,8 +227,10 @@ class Server(tk.Frame):
             try:
                 conn, addr = SERVER.accept()
                 Clients.append(conn)
-                tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CONNECTED !!", font = self.miniFont).grid(column = 0, sticky= "nw")
-                    
+                self.listConnect.append("CLIENT " + str(addr) + " CONNECTED !!")
+                #tk.Label(self.myframe, text = "CLIENT " + str(addr) + " CONNECTED !!", font = self.miniFont).grid(row = self.cli, column = 0)
+                self.updateScroll()
+
                 # gọi đa luồng cho Server
                 thread = threading.Thread(target = self.connClient, args = (conn, addr))
                 thread.daemon = True
@@ -238,20 +244,35 @@ class Server(tk.Frame):
                         X.Close()
                     SERVER.close()
 
-    def Connect(self):  
-        # Vẽ frame chứa các button 
-        self.mycanvas = tk.Canvas(self, height = 360, width = 280)
-        self.mycanvas.grid(row = 0, column = 0, sticky= "nw")
-
-        # Tạo thanh cuộn cho frame chứa button
-        yscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL, command = self.mycanvas.yview)
-        yscrollbar.grid(row = 0, column = 0, sticky = "ne", rowspan = 100, ipady = 158)
-
-        self.mycanvas.configure(yscrollcommand = yscrollbar.set)
+    def updateScroll(self):
+        self.yscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL, command = self.mycanvas.yview)
+        self.yscrollbar.grid(row = 0, column = 0, sticky = "ne", rowspan = 100, ipady = 158)
+        self.mycanvas.configure(yscrollcommand = self.yscrollbar.set)
         self.mycanvas.bind('<Configure>', lambda e: self.mycanvas.configure(scrollregion = self.mycanvas.bbox('all')))
 
         self.myframe = tk.Frame(self.mycanvas)
         self.mycanvas.create_window((0,0), window = self.myframe, anchor = "nw")
+        try:
+            i = 0
+            for p in self.listConnect:
+                tk.Label(self.myframe, text= p, font = self.miniFont).grid(row= i, column= 0)
+                i+=1
+        except:
+            tk.Label(self.myframe, text = "").grid(row = 0, column= 0)
+
+    def Connect(self):  
+        # Vẽ frame chứa các button 
+        self.mycanvas = tk.Canvas(self, height = 360, width = 280)
+        self.mycanvas.grid(row = 0, column = 0)
+
+        self.updateScroll()
+        # Tạo thanh cuộn cho frame chứa button
+        #self.yscrollbar = ttk.Scrollbar(self, orient = tk.VERTICAL, command = self.mycanvas.yview)
+        
+
+        #self.updateScroll()
+        # self.mycanvas.configure(yscrollcommand = self.yscrollbar.set)
+        # self.mycanvas.bind('<Configure>', lambda e: self.mycanvas.configure(scrollregion = self.mycanvas.bbox('all')))
 
         self.showAccount()
 
